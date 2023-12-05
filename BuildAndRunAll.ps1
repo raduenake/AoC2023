@@ -8,15 +8,15 @@ $totalRun = 0
     ForEach-Object { 
         Set-Location $_
         
-        $platform = $IsLinux -eq $true ? "linux-x64" : "win-x64"
+        $platform = $IsLinux -eq $true ? "linux-x64" : ""
         $prog = $IsLinux -eq $true ? "$($_)" : "$($_).exe"
 
         & dotnet clean > $null
         & dotnet restore > $null
         
         
-        $build = (Measure-Command { & dotnet build --configuration Release --arch x64 --no-self-contained > $null }).TotalMilliseconds
-        $run = (Measure-Command { & ".\bin\Release\net7.0\$($platform)\$($prog)" > $null }).TotalMilliseconds
+        $build = (Measure-Command { & dotnet build --configuration Release --no-self-contained > $null }).TotalMilliseconds
+        $run = (Measure-Command { & ".\bin\Release\net8.0\$($platform)\$($prog)" > $null }).TotalMilliseconds
         
         $totalBuild = $totalBuild + $build
         $totalRun = $totalRun + $run
