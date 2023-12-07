@@ -8,7 +8,7 @@ $totalRun = 0
     ForEach-Object { 
         Set-Location $_
         
-        $platform = $IsLinux -eq $true ? "linux-x64" : ""
+        $platform = $IsLinux -eq $true ? "" : ""
         $prog = $IsLinux -eq $true ? "$($_)" : "$($_).exe"
 
         & dotnet clean > $null
