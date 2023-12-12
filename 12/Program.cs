@@ -16,54 +16,6 @@ var input = file.ReadToEnd()
     })
     .ToImmutableArray();
 
-Func<string, string, bool> isMatch = (s, pattern) =>
-{
-    var r = false;
-    if (s.Length != pattern.Length)
-        return r;
-
-    for (int i = 0; i < s.Length; i++)
-    {
-        r = pattern[i] switch
-        {
-            '#' => s[i] == '1',
-            '.' => s[i] == '0',
-            _ => true
-        };
-        if (!r)
-            break;
-    }
-    return r;
-};
-
-Func<string, List<int>, bool> isBinOneMatch = (s, digitCounts) =>
-{
-    var r = false;
-    var oneGroups = s.Split('0').Where(s => !string.IsNullOrEmpty(s)).ToList();
-    if (oneGroups.Count() == digitCounts.Count())
-    {
-        for (int i = 0; i < oneGroups.Count(); i++)
-        {
-            r = oneGroups[i].Count() == digitCounts[i];
-            if (!r)
-                break;
-        }
-    }
-    return r;
-};
-
-Func<IEnumerable<char>, int, IEnumerable<IEnumerable<char>>> perm = (list, length) => { return Enumerable.Empty<IEnumerable<char>>(); };
-perm = (list, length) =>
-{
-    if (length == 1)
-    {
-        var l1 = list.SelectMany(c => c switch { '?' => new[] { new[] { '#' }, new[] { '.' } }, _ => new[] { new[] { c } } });
-        return l1;
-    }
-    var abc = perm(list, length - 1);
-    return perm(list, length - 1);
-};
-
 var history = new Dictionary<string, ulong>();
 Func<string, List<int>, ulong> cnt = (pattern, patternCounts) => { return 0UL; };
 cnt = (pattern, patternCounts) =>
