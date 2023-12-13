@@ -1,4 +1,6 @@
-﻿var file = System.IO.File.OpenText("input.txt");
+﻿using System.Security.Cryptography;
+
+var file = System.IO.File.OpenText("input.txt");
 var input = file.ReadToEnd().Split("\n");
 
 var inputPatterns = new List<List<((int x, int y) pos, char ch)>>();
@@ -42,43 +44,47 @@ Func<List<((int x, int y) pos, char ch)>, int, int, bool> isLineMirror = (patter
 // force finding a different reflection line using the prev value
 Func<List<((int x, int y) pos, char ch)>, int, int> getMirrorReflection = (pattern, prevValue) =>
 {
-    var line = 0;
-    while (line <= pattern.Max(p => p.pos.x))
+    Func<List<((int x, int y) pos, char ch)>, List<((int x, int y) pos, char ch)>> colsToLines = (pattern) =>
     {
-        var top = Enumerable.Range(0, line + 1).OrderDescending();
-        var bottom = Enumerable.Range(line + 1, pattern.Max(p => p.pos.x) - line);
-        var min = Math.Min(top.Count(), bottom.Count());
-        var isMirrored = min > 0 && top.Take(min).Zip(bottom.Take(min)).All(lm => isLineMirror(pattern, lm.First, lm.Second));
-        if (isMirrored)
-        {
-            var r = 100 * (line + 1);
-            if (r != prevValue)
-            {
-                return r;
-            }
-        }
-        line++;
-    }
+        int maxX = pattern.Max(pp => pp.pos.x);
+        int maxY = pattern.Max(pp => pp.pos.y);
 
-    var col = 0;
-    while (col <= pattern.Max(p => p.pos.y))
+        return pattern.Select(pp => (pos: (pp.pos.y, pp.pos.x), ch: pp.ch)).OrderBy(pp => pp.pos).ToList();
+    };
+
+    Func<List<((int x, int y) pos, char ch)>, int, int, int> getLine = (tempPattern, coef, prev) =>
     {
-        var left = Enumerable.Range(0, col + 1).OrderDescending();
-        var right = Enumerable.Range(col + 1, pattern.Max(p => p.pos.y) - col);
-        var min = Math.Min(left.Count(), right.Count());
-        var isMirrored = min > 0 && left.Take(min).Zip(right.Take(min)).All(lm => isColumnMirror(pattern, lm.First, lm.Second));
-        if (isMirrored)
+        var line = 0;
+        while (line <= tempPattern.Max(p => p.pos.x))
         {
-            var r = col + 1;
-            if (r != prevValue)
+            var top = Enumerable.Range(0, line + 1).OrderDescending();
+            var bottom = Enumerable.Range(line + 1, tempPattern.Max(p => p.pos.x) - line);
+            var min = Math.Min(top.Count(), bottom.Count());
+            var isMirrored = min > 0 && top.Take(min).Zip(bottom.Take(min)).All(lm => isLineMirror(tempPattern, lm.First, lm.Second));
+            if (isMirrored)
             {
-                return r;
+                var r = coef * (line + 1);
+                if (r != prev)
+                {
+                    return r;
+                }
             }
+            line++;
         }
-        col++;
-    }
+        return 0;
+    };
 
-    return 0;
+    // find line
+    var lineResponse = getLine(pattern, 100, prevValue);
+    if (lineResponse != 0) {
+        return lineResponse;
+    }
+    
+    // try the columns
+    var transposeColsToLines = colsToLines(pattern);
+    lineResponse = getLine(transposeColsToLines, 1, prevValue);
+
+    return lineResponse;
 };
 
 var p1 = 0;
