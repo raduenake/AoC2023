@@ -46,15 +46,6 @@ Func<char[,], int> solution = (inputTiles) =>
     return sol;
 };
 
-var partOne = new char[input.Max(t => t.Pos.X) + 1, input.Max(t => t.Pos.Y) + 1];
-foreach (var t in input)
-{
-    partOne[t.Pos.X, t.Pos.Y] = t.Ch;
-}
-
-partOne = rollNorth(partOne);
-Console.WriteLine($"P1: {solution(partOne)}");
-
 Func<char[,], int> getTilesHash = (tiles) =>
 {
     var s = "";
@@ -75,8 +66,15 @@ Func<char[,], char[,]> rotate = (inputTiles) =>
     return rotated;
 };
 
-var totalCycles = 1_000_000_000;
-var history = new Dictionary<int, char[,]>();
+var partOne = new char[input.Max(t => t.Pos.X) + 1, input.Max(t => t.Pos.Y) + 1];
+foreach (var t in input)
+{
+    partOne[t.Pos.X, t.Pos.Y] = t.Ch;
+}
+
+partOne = rollNorth(partOne);
+Console.WriteLine($"P1: {solution(partOne)}");
+
 
 var partTwoTemp = new char[input.Max(t => t.Pos.X) + 1, input.Max(t => t.Pos.Y) + 1];
 foreach (var t in input)
@@ -84,14 +82,18 @@ foreach (var t in input)
     partTwoTemp[t.Pos.X, t.Pos.Y] = t.Ch;
 }
 
+var history = new Dictionary<int, char[,]>();
+var setLoop = new List<int>();
+
+var totalCycles = 1_000_000_000;
 var lastHash = 0;
-var stepsUntilCycle = 0;
+var stepsUntilLoop = 0;
 while (true)
 {
     var hash = getTilesHash(partTwoTemp);
     if (history.ContainsKey(hash))
     {
-        // cycle
+        // loop
         lastHash = hash;
         break;
     }
@@ -101,19 +103,19 @@ while (true)
         partTwoTemp = rotate(rollNorth(partTwoTemp));
     }
 
-    history.Add(hash, (char[,])partTwoTemp.Clone());
-    stepsUntilCycle++;
+    history.Add(hash, partTwoTemp);
+    stepsUntilLoop++;
 }
 
-var cyle = new List<int>();
-while (!cyle.Contains(lastHash))
+// build loop
+while (!setLoop.Contains(lastHash))
 {
-    cyle.Add(lastHash);
+    setLoop.Add(lastHash);
     lastHash = getTilesHash(history[lastHash]);
 }
 
-var remaining = totalCycles - stepsUntilCycle - 1;
-var last = remaining % cyle.Count;
-var partTwo = history[cyle[last]];
+var remainingCycles = totalCycles - stepsUntilLoop - 1;
+var lastTileIdx = remainingCycles % setLoop.Count;
+var partTwo = history[setLoop[lastTileIdx]];
 
 Console.WriteLine($"P2: {solution(partTwo)}");
