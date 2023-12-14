@@ -78,40 +78,42 @@ Func<char[,], char[,]> rotate = (inputTiles) =>
 var totalCycles = 1_000_000_000;
 var history = new Dictionary<int, char[,]>();
 
-var lastComputedHash = 0;
-var partTwoTempTiles = new char[input.Max(t => t.Pos.X) + 1, input.Max(t => t.Pos.Y) + 1];
+var partTwoTemp = new char[input.Max(t => t.Pos.X) + 1, input.Max(t => t.Pos.Y) + 1];
 foreach (var t in input)
 {
-    partTwoTempTiles[t.Pos.X, t.Pos.Y] = t.Ch;
+    partTwoTemp[t.Pos.X, t.Pos.Y] = t.Ch;
 }
 
+var lastHash = 0;
 var stepsUntilCycle = 0;
-while (stepsUntilCycle < totalCycles)
+while (true)
 {
-    var initialHash = getTilesHash(partTwoTempTiles);
-    if (history.ContainsKey(initialHash))
+    var hash = getTilesHash(partTwoTemp);
+    if (history.ContainsKey(hash))
     {
-        lastComputedHash = initialHash;
+        // cycle
+        lastHash = hash;
         break;
     }
+
     foreach (var _ in Enumerable.Range(0, 4))
     {
-        partTwoTempTiles = rollNorth(partTwoTempTiles);
-        partTwoTempTiles = rotate(partTwoTempTiles);
+        partTwoTemp = rotate(rollNorth(partTwoTemp));
     }
-    history.Add(initialHash, (char[,])partTwoTempTiles.Clone());
+
+    history.Add(hash, (char[,])partTwoTemp.Clone());
     stepsUntilCycle++;
 }
 
 var cyle = new List<int>();
-while (!cyle.Contains(lastComputedHash))
+while (!cyle.Contains(lastHash))
 {
-    cyle.Add(lastComputedHash);
-    lastComputedHash = getTilesHash(history[lastComputedHash]);
+    cyle.Add(lastHash);
+    lastHash = getTilesHash(history[lastHash]);
 }
 
-long toGo = totalCycles - stepsUntilCycle - 1;
-long last = toGo % cyle.Count;
-var partTwo = history[cyle[(int)last]];
+var remaining = totalCycles - stepsUntilCycle - 1;
+var last = remaining % cyle.Count;
+var partTwo = history[cyle[last]];
 
 Console.WriteLine($"P2: {solution(partTwo)}");
