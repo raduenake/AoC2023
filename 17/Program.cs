@@ -1,8 +1,5 @@
 ﻿using System.Collections.Immutable;
-using System.Net.Security;
 using System.Numerics;
-using System.Security.Cryptography;
-using System.Text.RegularExpressions;
 
 var file = System.IO.File.OpenText("input.txt");
 var input = file.ReadToEnd()
@@ -30,82 +27,129 @@ var hash = (Vector2 last, Vector2 prev, string hist) =>
     return last.GetHashCode() + prev.GetHashCode() + hist.GetHashCode();
 };
 
-var shortDist = (int maxSteps, int stepsInLine) => { return 0; };
-shortDist = (int maxSteps, int stepsInLine) =>
+
+
+Func<string, int, int, bool> isValidMove = (history, min, max) =>
 {
-    var prioQueue = new PriorityQueue<(Vector2, Vector2, string), int>();
+    var isValid = true;
+    if (history.Count() > 1)
+    {
+        // at least 2 moves
+        var lastTwoMoves = history[^2..];
+        if (lastTwoMoves[0] != lastTwoMoves[1])
+        {
+            // turn?
+            var lastMinMoves = history[..^1].TakeLast(min);
+            isValid = lastMinMoves.Count() == min && lastMinMoves.Skip(1).All(m => m == lastMinMoves.First());
+        }
+        else
+        {
+            // is it continous?
+            var lastMaxMoves = history[..^1].TakeLast(max).ToList();
+            lastMaxMoves.Reverse();
+            var cCnt = 0;
+            foreach (var c in lastMaxMoves)
+            {
+                if (c != lastTwoMoves[1])
+                {
+                    break;
+                }
+                cCnt++;
+            }
+            isValid = cCnt >= min - 1 && cCnt < max;
+        }
+    }
+
+    return isValid;
+};
+
+var shortDist = (int stepsInLine, int maxSteps) => { return 0; };
+shortDist = (int stepsInLine, int maxSteps) =>
+{
+    var prioQueue = new PriorityQueue<(Vector2, Vector2, string, int), int>();
     var visited = new HashSet<int>();
 
     //start is "Free";
-    prioQueue.Enqueue((Vector2.Zero, Vector2.Zero, ""), (-1) * input[Vector2.Zero]);
-    (Vector2 last, Vector2 prev, string moveHistory) current;
+    prioQueue.Enqueue((Vector2.Zero, Vector2.Zero, "", 1), (-1) * input[Vector2.Zero]);
+    (Vector2 last, Vector2 prev, string moveHistory, int stepsToGo) current;
     var loss = 0;
     while (prioQueue.TryDequeue(out current, out loss))
     {
         if (current.last.X == maxX && current.last.Y == maxY)
         {
-            var lastSteps = current.moveHistory.TakeLast(stepsInLine);
-            if (lastSteps.Count() == stepsInLine && lastSteps.Take(stepsInLine - 1).All(s => s == lastSteps.Last()))
-                return loss + input[current.last];
+            return loss + input[current.last];
         }
 
         var dirOfTravel = current.last != current.prev ? current.last - current.prev : Vector2.Zero;
-        var dirUnits = new[] { (increment: Vector2.Zero, move: "_") };
+        var dirUnits = new[] { (increment: Vector2.Zero, move: "_", stepsToGo: 0) };
         if (dirOfTravel == Vector2.Zero)
         {
             dirUnits = [
-                (increment: Vector2.UnitX, move: moveDict[Vector2.UnitX]),
-                (increment: Vector2.UnitY, move: moveDict[Vector2.UnitY])
+                (increment: Vector2.UnitX, move: moveDict[Vector2.UnitX], stepsInLine),
+                (increment: Vector2.UnitY, move: moveDict[Vector2.UnitY], stepsInLine)
             ];
         }
         else
         {
             dirUnits = [
-                (increment: rotateDeg(dirOfTravel, -90), move: moveDict[rotateDeg(dirOfTravel, -90)]),
-                (increment: dirOfTravel, move: moveDict[dirOfTravel]),
-                (increment: rotateDeg(dirOfTravel, 90), move: moveDict[rotateDeg(dirOfTravel, 90)])
+                (increment: rotateDeg(dirOfTravel, -90), move: moveDict[rotateDeg(dirOfTravel, -90)], stepsInLine),
+                (increment: dirOfTravel, move: moveDict[dirOfTravel], current.stepsToGo),
+                (increment: rotateDeg(dirOfTravel, 90), move: moveDict[rotateDeg(dirOfTravel, 90)], stepsInLine)
             ];
         }
 
         foreach (var dirUnit in dirUnits)
         {
-            var next = current.last + dirUnit.increment;
-            if (!input.ContainsKey(next))
-                continue;
+            var stepsToGo = dirUnit.stepsToGo;
 
-            var moveHistory = current.moveHistory + dirUnit.move;
-            var tmpMoveHistory = moveHistory.TakeLast(maxSteps + 1);
-            if (
-                (tmpMoveHistory.Count() == maxSteps + 1) || 
-                (tmpMoveHistory.Count() < stepsInLine && tmpMoveHistory.TakeLast(stepsInLine).All(s => s == tmpMoveHistory.TakeLast(stepsInLine).Last())) ||
-                (tmpMoveHistory.Count() > 1 && 
-                tmpMoveHistory.Last() != tmpMoveHistory.Take(tmpMoveHistory.Count() - 1).Last() &&
-                tmpMoveHistory.Take(tmpMoveHistory.Count() - 1).TakeLast(stepsInLine).Count() == stepsInLine &&
-                tmpMoveHistory.Take(tmpMoveHistory.Count() - 1).TakeLast(stepsInLine)
-                    .Take(stepsInLine - 1).Any(h => h != tmpMoveHistory.Take(tmpMoveHistory.Count() - 1).Last()))
-            )
-            
+            var last = Vector2.Zero;
+            var next = current.last;
+            var nextLoss = loss;
+            var moveHistory = current.moveHistory;
+
+            var tmpVisited = new HashSet<int>();
+            while (stepsToGo > 0)
             {
-                continue;
+                last = next;
+
+                next = last + dirUnit.increment;
+                if (!input.ContainsKey(next))
+                {
+                    break;
+                }
+
+                moveHistory += dirUnit.move;
+                nextLoss += input[last];
+
+                var hMove = hash(next, last, string.Join("", moveHistory.TakeLast(maxSteps + 1)));
+                tmpVisited.Add(hMove);
+
+                stepsToGo--;
             }
 
-            var nextLoss = loss + input[current.last];
-            var h = hash(next, current.last, string.Join("", tmpMoveHistory));
+            if (!input.ContainsKey(next) || !isValidMove(moveHistory, stepsInLine, maxSteps))
+                continue;
+
+            foreach (var t in tmpVisited.Take(tmpVisited.Count() - 1))
+            {
+                visited.Add(t);
+            }
+
+            var tmpMoveHistory = moveHistory.TakeLast(maxSteps + 1);
+            var h = hash(next, last, string.Join("", tmpMoveHistory));
 
             if (!visited.Contains(h))
             {
                 visited.Add(h);
-                prioQueue.Enqueue((next, current.last, string.Join("", tmpMoveHistory)), nextLoss);
+                prioQueue.Enqueue((next, last, string.Join("", tmpMoveHistory), 1), nextLoss);
             }
         }
     }
     return 0;
 };
 
-// var p1 = shortDist(3);
-
-// Console.WriteLine($"P1: {p1}");
-
-var p1 = shortDist(10, 4);
-
+var p1 = shortDist(1, 3);
 Console.WriteLine($"P1: {p1}");
+
+var p2 = shortDist(4, 10);
+Console.WriteLine($"P1: {p2}");
